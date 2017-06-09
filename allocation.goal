@@ -1,0 +1,18 @@
+Goal:
+	Determine how much I need to put into a set of stocks to move me efficiently toward a target allocation.
+	The number of stocks I need to invest in should be minimized.
+		Maybe an upper threshold on number of stocks can be an input parameter.
+
+Assumptions:
+	Easiest way to do calculations is probably in raw dollars.
+
+Data:
+	Data input for stocks.
+		Probably a little object that stores the 9 block and the allocation for each stock.
+		Need to be able to multiply a stock by a dollar value and get a breakdown.
+
+Implementation:
+	It seems like we don't need to find the exact or even best allocation. Just a good one.
+	Establish an increment (1 dollar 100 dollars something)
+	Run through each stock and evaluate a single unit buy
+	Buy the best one and loop.
