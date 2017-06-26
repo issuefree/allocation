@@ -1,4 +1,5 @@
 import math
+import random
 
 class Stock:
 	allocationLabels = [
@@ -59,16 +60,30 @@ class Stock:
 		newStock.dollarValue = dollarValue
 		return newStock
 
+def getBucketMinError(bucket, target, current, increment):
+	if increment > 0:
+		increment = min(bucket["contribution"], increment)
+	minError = None
+	minStock = None
+	for stockName in bucket["stockOptions"]:
+		stock = stocks[stockName]
+		error = getError(target, current+stock*increment)/getError(target, current)
+		if minError == None or error < minError:
+			minError = error
+			minStock = stock
+	return minError, minStock
+
 def getError(target, current):
 	allocationError = getAllocationError(target, current)
 	styleError = getStyleError(target, current)
-	return allocationError + styleError/2
+	return allocationError + styleError/4
 		
 def getAllocationError(target, current):
 	error = 0
+	newTarget = target*current.dollarValue
 	for i in range(len(Stock.allocationLabels)):
-		error += (target.allocation[i]-current.allocation[i])**2
-	return math.sqrt(error)
+		error += (newTarget.toDollars()[i]-current.toDollars()[i])**2
+	return math.sqrt(error)/sum(newTarget.toDollars())
 
 def getStyleError(target, current):
 	error = 0
@@ -132,78 +147,81 @@ def runBuckets():
 	print("AE: %0.2f%%\tSE: %0.2f%%"%(getAllocationError(target, current)*100, getStyleError(target,current)*100))
 
 	contribution = Stock("contribution", [0]*6, [0]*9)
-	baseIncrement = 25
+	baseIncrement = 100
 
-	buckets = {}
-	buckets["rachelRoth"] = {
-		"contribution":5500*.9389,
-		"stockOptions":["VFFVX"],
-		"allocation":{}
-	}
-	buckets["timRoth"] = {
-		"contribution":5500*.9389,
-		"stockOptions":["VGSLX", "VBTLX"],
-		"allocation":{}
-	}
-	buckets["401k"] = {
-		"contribution":1818*6,
-		"stockOptions":["VIEIX", "VBTLX", "VIPIX", "VBTLX", "VTSAX", "VXUS"],
-		"allocation":{}
-	}
-	buckets["HSA"] = {
-		"contribution":479*6,
-		"stockOptions":["VBTLX"],
-		"allocation":{}
-	}
-	buckets["vanguard"] = {
-		"contribution":2500*6,
-		"stockOptions":["VTSAX", "VSMAX", "VO", "VWO", "VXUS"],
-		"allocation":{}
-	}
+	buckets = [
+		{
+			"name":"rachelRoth",
+			"contribution":5500*.9389,
+			"stockOptions":["VFFVX"],
+			"allocation":{}
+		},
+		{
+			"name":"timRoth",
+			"contribution":5500*.9389,
+			"stockOptions":["VGSLX", "VBTLX"],
+			"allocation":{}
+		},
+		{
+			"name":"401k",
+			"contribution":1818*6,
+			"stockOptions":["VIEIX", "VBTLX", "VIPIX", "VBTLX", "VTSAX", "VXUS"],
+			"allocation":{}
+		},
+		{
+			"name":"HSA",
+			"contribution":479*6,
+			"stockOptions":["VBTLX"],
+			"allocation":{}
+		},
+		{
+			"name":"vanguard",
+			"contribution":2500*6,
+			"stockOptions":["VTSAX", "VSMAX", "VO", "VWO", "VXUS"],
+			"allocation":{}
+		}
+	]
+
+	# print(getBucketMinError(buckets["vanguard"], target, current, -1))
 
 	runCount = 0
 	lastError = 1
 	while True:
-		increment = baseIncrement
+		increment = baseIncrement		
 		runCount += 1
-		mbStock = None
-		maxBucketError = None
-		maxBucket = None
-		maxBucketName = None
-		canContribute = False
 
-		for bucketName in buckets:
-			minError = None
-			minStock = None			
-			bucket = buckets[bucketName]
-			if bucket["contribution"] > 0:
-				canContribute = True
-				increment = min(baseIncrement, bucket["contribution"])
+		if runCount % 5 == 0:
+			increment = -increment
 
-				for stockName in bucket["stockOptions"]:
-					stock = stocks[stockName]
-					error = getError(target, current+contribution+stock*increment)
-					if minError == None or error < minError:
-						minError = error
-						minStock = stock
-				if maxBucketError == None or minError > maxBucketError:
-					maxBucketError = minError
-					maxBucket = bucket
-					maxBucketName = bucketName
-					mbStock = minStock
+		newTarget = target*(current+contribution).dollarValue
+		for i in range(len(Stock.allocationLabels)):
+			print("%s : %0.2f"%(Stock.allocationLabels[i], (newTarget.toDollars()[i] - (current+contribution).toDollars()[i])))
 
-		if not canContribute:
+		bucketErrors = sorted([(bucket, getBucketMinError(bucket, target, current+contribution, increment)) for bucket in buckets], key=lambda bucket: bucket[1][0], reverse=False)
+		if increment > 0:
+			bucketErrors = [bucketError for bucketError in bucketErrors if bucketError[0]["contribution"] > 0]
+		else:
+			bucketErrors = [bucketError for bucketError in bucketErrors if bucketError[1][1].name in bucketError[0]["allocation"]]
+			bucketErrors = [bucketError for bucketError in bucketErrors if not bucketError[0]["name"] in ["rachelRoth", "HSA"]]
+
+		if len(bucketErrors) == 0:
+			if increment < 0:
+				continue
 			print("No more money")
 			break
-		contribution += mbStock*increment
-		maxBucket["contribution"] -= increment
-		if not mbStock.name in maxBucket["allocation"]:
-			maxBucket["allocation"][mbStock.name] = 0
-		maxBucket["allocation"][mbStock.name] += increment
-		
-		# print(lastError)
-		# error = getError(target, current+contribution)
-		# print(error)
+
+		maxBucketError = bucketErrors[0]
+		maxBucket = maxBucketError[0]
+		mbStock = maxBucketError[1][1]
+
+		if increment > 0:
+			increment = min(maxBucket["contribution"], baseIncrement)
+
+		error = getError(target, current+contribution)
+		lastError = error
+
+		print(str(increment) + " -> " + maxBucket["name"] + ":" + mbStock.name)
+		print("  %0.2f%% -> %0.2f%%"%(lastError*100, error*100))
 		# if error > lastError:
 		# 	print("increasing error")
 		# 	print(mbStock.name + " -> " + minBucketName)
@@ -213,22 +231,28 @@ def runBuckets():
 		# 		print("  " + str(bucket["contribution"]))
 		# 		print("  " + str(bucket["allocation"]))
 		# 	break
-		# lastError = error
+
+		contribution += mbStock*increment
+		maxBucket["contribution"] -= increment
+		if not mbStock.name in maxBucket["allocation"]:
+			maxBucket["allocation"][mbStock.name] = 0
+		maxBucket["allocation"][mbStock.name] += increment
+		
 
 
 		if runCount > 10000:
 			print("TOO MANY RUNS")
 			break
 
-	for bucketName in buckets:
-		print(bucketName)
+	for bucket in buckets:
+		print(bucket["name"])
 		# print(buckets[bucketName]["allocation"])
 		total = 0
-		for stock in buckets[bucketName]["allocation"].values():
+		for stock in bucket["allocation"].values():
 			total += stock
-		for stock in buckets[bucketName]["allocation"]:
-			perc = float(buckets[bucketName]["allocation"][stock])/total*100			
-			print("  %s\t:\t%2.2f%%\t(%d)"%(stock,perc,buckets[bucketName]["allocation"][stock]))
+		for stock in bucket["allocation"]:
+			perc = float(bucket["allocation"][stock])/total*100			
+			print("  %s\t:\t%2.2f%%\t(%d)"%(stock,perc,bucket["allocation"][stock]))
 	print("AE: %0.2f%%\tSE: %0.2f%%"%(getAllocationError(target, current+contribution)*100, getStyleError(target,current+contribution)*100))
 	print(current+contribution)
 
