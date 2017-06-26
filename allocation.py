@@ -59,22 +59,38 @@ class Stock:
 		newStock.dollarValue = dollarValue
 		return newStock
 
-def getError(target, current):
-	allocationError = getAllocationError(target, current)
-	styleError = getStyleError(target, current)
+def getError(allocationA, allocationB):
+	allocationError = getAllocationError(allocationA, allocationB)
+	styleError = getStyleError(allocationA, allocationB)
 	return allocationError + styleError/2
 		
-def getAllocationError(target, current):
+def getAllocationError(allocationA, allocationB):
 	error = 0
 	for i in range(len(Stock.allocationLabels)):
-		error += (target.allocation[i]-current.allocation[i])**2
+		error += (allocationA.allocation[i]-allocationB.allocation[i])**2
 	return math.sqrt(error)
 
-def getStyleError(target, current):
+def getStyleError(allocationA, allocationB):
+	if allocationA.style == None or current.style == None:
+		return 0
+
+	style = [allocationA.style[i] - allocationB.style[i] for i in range(len(allocationA.style))]
+
 	error = 0
-	for i in range(9):
-		if target.style != None and current.style != None:
-			error += (target.style[i]-current.style[i])**2
+	# large cap
+	error += sum(style[0:3])**2
+	# medium cap
+	error += sum(style[3:6])**2
+	# small cap
+	error += sum(style[6:9])**2
+
+	# value
+	error += sum(style[0::3])**2/2
+	# blend
+	error += sum(style[1::3])**2/2
+	# growth
+	error += sum(style[2::3])**2/2
+
 	return math.sqrt(error)
 
 
@@ -94,39 +110,9 @@ stocks["VXUS"] = Stock("VXUS",   [0,.84,.16,0,0,0], [0]*9)
 stocks["VWO"] = Stock("VWO",     [0,.21,.79,0,0,0], [0]*9)
 
 
-target = Stock("Target Allocation", [.512, .184, .0640, .04, .16, .04], [.17,.17,.17,.11,.11,.11,.06,.06,.06])
-current = Stock("Current Allocation", [.5154, .1852, .0597, .0370, .1602, .0425], [.17,.18,.17,.10,.11,.11,.06,.06,.05])
-current.dollarValue = 456816
-
-
-def runAllInOne():
-	print(getError(target, current))
-	contribution = Stock("contribution", [0]*6, [0]*9)
-	contributionTotal = (2500+1818)*6+11000*.9389
-	increment = 100
-	contributionStockWeights = {}
-
-	contributed = 0
-	while contributed < contributionTotal:
-		minError = None
-		minStock = None
-		for stock in stocks.values():
-			error = getError(target, current+contribution+stock*increment)
-			if minError == None or error < minError:
-				minError = error
-				minStock = stock
-		contribution += minStock*increment
-		contributed += increment
-		if not minStock.name in contributionStockWeights:
-			contributionStockWeights[minStock.name] = 0
-		contributionStockWeights[minStock.name] += increment
-
-	print(contributionStockWeights)
-	print(contribution)
-	print(current+contribution)
-
-	print(getError(target, current+contribution))
-
+target = Stock("Target Allocation", [.512, .184, .0640, .04, .16, .04], [.1667,.1667,.1667,.1111,.1111,.1111,.0556,.0556,.0556])
+current = Stock("Current Allocation", [.5161, .1836, .0595, .0375, .1609, .0424], [.1660,.1766,.1651,.1033,.1070,.1143,.0559,.0579,.0539])
+current.dollarValue = 456957
 
 def runBuckets():
 	print("AE: %0.2f%%\tSE: %0.2f%%"%(getAllocationError(target, current)*100, getStyleError(target,current)*100))
@@ -136,12 +122,12 @@ def runBuckets():
 
 	buckets = {}
 	buckets["rachelRoth"] = {
-		"contribution":5500*.9389,
+		"contribution":5500*.9861,
 		"stockOptions":["VFFVX"],
 		"allocation":{}
 	}
 	buckets["timRoth"] = {
-		"contribution":5500*.9389,
+		"contribution":5500*.9861,
 		"stockOptions":["VGSLX", "VBTLX"],
 		"allocation":{}
 	}
@@ -221,8 +207,50 @@ def runBuckets():
 			print("TOO MANY RUNS")
 			break
 
-	for bucket in buckets.values():
-		print(bucket)
+	tuneBuckets = True
+	tuneUps = 0
+	while tuneBuckets and tuneUps < 500:
+		tuneUps += 1
+		print(tuneUps)
+		tuneBuckets = False
+		for bucketName in buckets:
+			bucket = buckets[bucketName]
+			print(bucketName)
+			if len(bucket["stockOptions"]) < 2:
+				continue
+			error = getError(target, current+contribution)
+
+			bestSell = sorted([(stockName, error-getError(target, current+contribution+stocks[stockName]*-baseIncrement)) for stockName in bucket["allocation"]], key=lambda item: item[1], reverse=True)[0]
+
+			increment = min(baseIncrement, bucket["allocation"][bestSell[0]])
+
+			if increment < 1:
+				continue
+
+			bestBuy = sorted([(stockName, error-getError(target, current+contribution+stocks[stockName]*increment)) for stockName in bucket["stockOptions"]], key=lambda item: item[1], reverse=True)[0]
+
+			if bestSell[1]+bestBuy[1] > 1e-07:
+				print("sell " + str(bestSell) + " " + str(increment))
+				print("buy " + str(bestBuy) + " " + str(increment))
+				contribution += stocks[bestSell[0]]*-increment
+				bucket["allocation"][bestSell[0]] -= increment
+				contribution += stocks[bestBuy[0]]*+increment
+				if not bestBuy[0] in bucket["allocation"]:
+					bucket["allocation"][bestBuy[0]] = 0
+				bucket["allocation"][bestBuy[0]] += increment
+				tuneBuckets = True
+
+
+
+
+		# for stockName in bucket["stockOptions"]:
+		# 	stock = stocks[stockName]
+
+		# 	newBuyError = getError(target, current+stock*baseIncrement)
+		# 	print(stockName + " " + str(error-newBuyError))
+
+
+
 
 	for bucketName in buckets:
 		print(bucketName)
@@ -232,7 +260,7 @@ def runBuckets():
 			total += stock
 		for stock in buckets[bucketName]["allocation"]:
 			perc = float(buckets[bucketName]["allocation"][stock])/total*100			
-			print("  %s\t:\t%2.2f%%\t(%d)"%(stock,perc,buckets[bucketName]["allocation"][stock]))
+			print("  %s\t:\t%2.1f%%\t(%d)"%(stock,perc,buckets[bucketName]["allocation"][stock]))
 	print("AE: %0.2f%%\tSE: %0.2f%%"%(getAllocationError(target, current+contribution)*100, getStyleError(target,current+contribution)*100))
 	print(current+contribution)
 
