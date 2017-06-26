@@ -191,15 +191,16 @@ def runBuckets():
 					maxBucket = bucket
 					maxBucketName = bucketName
 					mbStock = minStock
+					mbIncrement = increment
 
 		if not canContribute:
 			print("No more money")
 			break
-		contribution += mbStock*increment
-		maxBucket["contribution"] -= increment
+		contribution += mbStock*mbIncrement
+		maxBucket["contribution"] -= mbIncrement
 		if not mbStock.name in maxBucket["allocation"]:
 			maxBucket["allocation"][mbStock.name] = 0
-		maxBucket["allocation"][mbStock.name] += increment
+		maxBucket["allocation"][mbStock.name] += mbIncrement
 		
 		# print(lastError)
 		# error = getError(target, current+contribution)
@@ -219,6 +220,9 @@ def runBuckets():
 		if runCount > 10000:
 			print("TOO MANY RUNS")
 			break
+
+	for bucket in buckets.values():
+		print(bucket)
 
 	for bucketName in buckets:
 		print(bucketName)
