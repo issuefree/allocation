@@ -155,6 +155,16 @@ def getCurrentAllocation():
 	current.dollarValue = dollarValue
 	return current
 
+def getTargetAllocation():
+	values = getRange('Portfolio Summary!G19:G24')
+	allocation = [a[0] for a in values]
+	values = getRange('Portfolio Summary!J20:L22')
+	style = values[0]
+	style += values[1]
+	style += values[2]
+	target = Stock("Target Allocation", allocation, style)
+	return target
+
 stocks = getStocks()
 # stocks["VTSAX"] = Stock("VTSAX", [.97,.03,0,0,0,0], [.25,.25,.23,.06,.06,.06,.03,.03,.03])
 # stocks["VTV"]   = Stock("VTV",   [.98,.02,0,0,0,0], [.51,.25,.09,.09,.05,.01,0,0,0])
@@ -172,7 +182,8 @@ stocks = getStocks()
 # stocks["VWO"] = Stock("VWO",     [0,.21,.79,0,0,0], [0]*9)
 
 
-target = Stock("Target Allocation", [.512, .184, .0640, .04, .16, .04], [.1667,.1667,.1667,.1111,.1111,.1111,.0556,.0556,.0556])
+# target = Stock("Target Allocation", [.512, .184, .0640, .04, .16, .04], [.1667,.1667,.1667,.1111,.1111,.1111,.0556,.0556,.0556])
+target = getTargetAllocation()
 current = getCurrentAllocation()
 # current = Stock("Current Allocation", [.5210, .1870, .0614, .0375, .1523, .0409], [.1723,.1704,.1597,.0990,.1084,.1169,.0594,.0579,.0560])
 # current.dollarValue = 463316
@@ -309,7 +320,7 @@ def runBuckets():
 		for stock in bucket["allocation"]:
 			perc = float(bucket["allocation"][stock])/total*100			
 			print("  %s\t:\t%2.2f%%\t(%d)"%(stock,perc,bucket["allocation"][stock]))
-	print("AE: %0.2f%%\tSE: %0.2f%%"%(getAllocationError(target, current+contribution)*100, getStyleError(target,current+contribution)*100))
+	print("AE: %0.3f%%\tSE: %0.2f%%"%(getAllocationError(target, current+contribution)*100, getStyleError(target,current+contribution)*100))
 	# print(contribution)
 	print(current+contribution)
 
