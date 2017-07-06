@@ -1,4 +1,5 @@
 import math
+from quickstart import getService
 
 class Stock:
 	allocationLabels = [
@@ -81,7 +82,7 @@ def getBucketMinError(bucket, target, current, increment):
 def getError(allocationA, allocationB):
 	allocationError = getAllocationError(allocationA, allocationB)
 	styleError = getStyleError(allocationA, allocationB)
-	return allocationError + styleError/4
+	return allocationError + styleError/5
 		
 def getAllocationError(allocationA, allocationB):
 	error = 0
@@ -112,27 +113,69 @@ def getStyleError(allocationA, allocationB):
 
 	return math.sqrt(error)
 
+service = getService()
+spreadsheetId = '1ZQeUOwwX_27V-RxVez8K6_lwbrvqK_mvkv-nqhKDjGc'
+def getRange(range):
+	result = service.spreadsheets().values().get(spreadsheetId=spreadsheetId, range=range, valueRenderOption="UNFORMATTED_VALUE").execute()	
+	return result.get('values', [])
 
-stocks = {}
-stocks["VTSAX"] = Stock("VTSAX", [.97,.03,0,0,0,0], [.25,.25,.23,.06,.06,.06,.03,.03,.03])
-stocks["VTV"]   = Stock("VTV",   [.98,.02,0,0,0,0], [.51,.25,.09,.09,.05,.01,0,0,0])
-stocks["VSMAX"] = Stock("VSMAX", [.96,.02,.02,0,0,0], [0,0,0,.09,.13,.20,.20,.20,.19])
-stocks["VO"] = Stock("VO",       [.94,.04,.02,0,0,0], [.0,.05,.09,.28,.30,.27,.01,0,0])
-stocks["VOE"] = Stock("VOE",     [.94,.04,.02,0,0,0], [.01,.07,0,.49,.34,.08,.01,0,0])
-stocks["VIEIX"] = Stock("VIEIX", [.95,.03,.02,0,0,0], [.01,.01,.02,.11,.13,.21,.17,.17,.17])
-stocks["VGSLX"] = Stock("VGSLX", [0,0,0,1,0,0], [.0,.23,.07,.12,.24,.12,.08,.10,.03])
-stocks["VFFVX"] = Stock("VFFVX", [.53,.31,.06,0,.10,0], [.26,.25,.25,.06,.06,.06,.02,.02,.02])
-stocks["VIPIX"] = Stock("VIPIX", [0,0,0,0,0,1], [0]*9)
-stocks["VBTLX"] = Stock("VBTLX", [0,0,0,0,1,0], [0]*9)
-# stocks["PTTRX"] = Stock("PTTRX", [0,0,0,0,.88,.12])
-stocks["VXUS"] = Stock("VXUS",   [0,.84,.16,0,0,0], [0]*9)
-stocks["VTSNX"] = Stock("VTSNX",   [0,.84,.16,0,0,0], [0]*9)
-stocks["VWO"] = Stock("VWO",     [0,.21,.79,0,0,0], [0]*9)
+# getRange('Portfolio Summary!D2')
+
+def zero(value):
+	if value == '':
+		return 0
+	return value
+
+def getStocks():
+	stocks = {}
+	values = getRange('Funds!A3:M')
+
+	for i in range(len(values)):
+		row = values[i]
+		if len(row) > 3 and len(row[0]) > 0:
+			ticker = row[0]
+			allocation = [zero(values[i+o][8]) for o in range(6)]
+			style = values[i][10:13]
+			style += values[i+1][10:13]
+			style += values[i+2][10:13]
+			if not len(style) == 9:
+				style = [0]*9
+			stocks[ticker] = Stock(ticker, allocation, style)
+	return stocks
+
+def getCurrentAllocation():
+	values = getRange('Portfolio Summary!G7:G12')
+	allocation = [a[0] for a in values]
+	values = getRange('Portfolio Summary!J8:L10')
+	style = values[0]
+	style += values[1]
+	style += values[2]
+	dollarValue = getRange('Portfolio Summary!D2')[0][0]
+	current = Stock("Current Allocation", allocation, style)
+	current.dollarValue = dollarValue
+	return current
+
+stocks = getStocks()
+# stocks["VTSAX"] = Stock("VTSAX", [.97,.03,0,0,0,0], [.25,.25,.23,.06,.06,.06,.03,.03,.03])
+# stocks["VTV"]   = Stock("VTV",   [.98,.02,0,0,0,0], [.51,.25,.09,.09,.05,.01,0,0,0])
+# stocks["VSMAX"] = Stock("VSMAX", [.96,.02,.02,0,0,0], [0,0,0,.09,.13,.20,.20,.20,.19])
+# stocks["VO"] = Stock("VO",       [.94,.04,.02,0,0,0], [.0,.05,.09,.28,.30,.27,.01,0,0])
+# stocks["VOE"] = Stock("VOE",     [.94,.04,.02,0,0,0], [.01,.07,0,.49,.34,.08,.01,0,0])
+# stocks["VIEIX"] = Stock("VIEIX", [.95,.03,.02,0,0,0], [.01,.01,.02,.11,.13,.21,.17,.17,.17])
+# stocks["VGSLX"] = Stock("VGSLX", [0,0,0,1,0,0], [.0,.23,.07,.12,.24,.12,.08,.10,.03])
+# stocks["VFFVX"] = Stock("VFFVX", [.53,.31,.06,0,.10,0], [.26,.25,.25,.06,.06,.06,.02,.02,.02])
+# stocks["VIPIX"] = Stock("VIPIX", [0,0,0,0,0,1], [0]*9)
+# stocks["VBTLX"] = Stock("VBTLX", [0,0,0,0,1,0], [0]*9)
+# # stocks["PTTRX"] = Stock("PTTRX", [0,0,0,0,.88,.12])
+# stocks["VXUS"] = Stock("VXUS",   [0,.84,.16,0,0,0], [0]*9)
+# stocks["VTSNX"] = Stock("VTSNX",   [0,.84,.16,0,0,0], [0]*9)
+# stocks["VWO"] = Stock("VWO",     [0,.21,.79,0,0,0], [0]*9)
 
 
 target = Stock("Target Allocation", [.512, .184, .0640, .04, .16, .04], [.1667,.1667,.1667,.1111,.1111,.1111,.0556,.0556,.0556])
-current = Stock("Current Allocation", [.5210, .1870, .0614, .0375, .1523, .0409], [.1723,.1704,.1597,.0990,.1084,.1169,.0594,.0579,.0560])
-current.dollarValue = 463316
+current = getCurrentAllocation()
+# current = Stock("Current Allocation", [.5210, .1870, .0614, .0375, .1523, .0409], [.1723,.1704,.1597,.0990,.1084,.1169,.0594,.0579,.0560])
+# current.dollarValue = 463316
 
 print(current)
 
@@ -145,13 +188,13 @@ def runBuckets():
 	buckets = [
 		{
 			"name":"rachelRoth",
-			"contribution":5500*.9861,
+			"contribution":5500*1.0111,
 			"stockOptions":["VFFVX"],
 			"allocation":{}
 		},
 		{
 			"name":"timRoth",
-			"contribution":5500*.9861,
+			"contribution":5500*1.0111,
 			"stockOptions":["VGSLX", "VBTLX"],
 			"allocation":{}
 		},
@@ -170,7 +213,7 @@ def runBuckets():
 		{
 			"name":"vanguard",
 			"contribution":3000*6,
-			"stockOptions":["VTSAX", "VSMAX", "VO", "VWO", "VXUS"],
+			"stockOptions":["VTSAX", "VSMAX", "VO", "VWO", "VXUS", "VTV"],
 			"allocation":{}
 		}
 	]
@@ -269,5 +312,6 @@ def runBuckets():
 	print("AE: %0.2f%%\tSE: %0.2f%%"%(getAllocationError(target, current+contribution)*100, getStyleError(target,current+contribution)*100))
 	# print(contribution)
 	print(current+contribution)
+
 
 runBuckets()
